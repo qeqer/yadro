@@ -17,14 +17,14 @@ SECTIONS
 	PROVIDE(etext = .);	/* Define the 'etext' symbol to this value */
 
 	.rodata : {
-		*(.rodata .rodata.* .gnu.linkonce.r.*)
+		*(.rodata .rodata.* .gnu.linkonce.r.* .data.rel.ro.local)
 	}
 
 	/* Adjust the address for the data segment to the next page */
 	. = ALIGN(0x1000);
 
 	.data : {
-		*(.data)
+		*(.data .data.rel.local .got .got.plt)
 	}
 
 	PROVIDE(edata = .);
