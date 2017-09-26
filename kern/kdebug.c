@@ -101,6 +101,9 @@ stab_binsearch(const struct Stab *stabs, int *region_left, int *region_right,
 //	negative if not.  But even if it returns negative it has stored some
 //	information into '*info'.
 //
+
+
+
 int
 debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 {
@@ -180,6 +183,9 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	//	which one.
 	// Your code here.
 
+    stab_binsearch(stabs, & lline, & rline, N_SLINE, addr);
+    if (lline > rline) return -1;
+    info->eip_line = stabs[lline].n_desc;
 
 	// Search backwards from the line number for the relevant filename
 	// stab.
@@ -202,5 +208,6 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 		     lline++)
 			info->eip_fn_narg++;
 
+    
 	return 0;
 }
