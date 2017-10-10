@@ -44,11 +44,7 @@ SECTIONS
 
 	/* The data segment */
 	.data : {
-<<<<<<< HEAD
-		*(.data .data.rel.local)
-=======
 		*(.data .data.rel .data.rel.local .got .got.plt)
->>>>>>> lab3
 	}
 
 	PROVIDE(edata = .);

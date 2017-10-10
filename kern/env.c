@@ -12,6 +12,7 @@
 #include <kern/monitor.h>
 #include <kern/sched.h>
 #include <kern/cpu.h>
+#include <kern/kdebug.h>
 
 struct Env env_array[NENV];
 struct Env *curenv = NULL;
@@ -120,8 +121,13 @@ void
 env_init(void)
 {
 	// Set up envs array
-	//LAB 3: Your code here.
-	
+    //NENV - const in inc/env.h Max Processes
+    for (int i = NENV - 1; i >= 0; i--) {
+		envs[i].env_status = ENV_FREE;
+		envs[i].env_id = 0;
+		envs[i].env_link = env_free_list;
+		env_free_list = &envs[i];
+	}
 	// Per-CPU part of the initialization
 	env_init_percpu();
 }
@@ -200,7 +206,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	e->env_tf.tf_ss = GD_KD | 0;
 	e->env_tf.tf_cs = GD_KT | 0;
 	//LAB 3: Your code here.
-	// e->env_tf.tf_esp = 0x210000;
+	e->env_tf.tf_esp = 0x210000 + 0x2000 * (e - envs); //0x2000-2 страницы под стек для процесса, e-envs - индекс в envs
 #else
 #endif
 	// You will set e->env_tf.tf_eip later.
@@ -219,7 +225,41 @@ bind_functions(struct Env *e, struct Elf *elf)
 {
 	//find_function from kdebug.c should be used
 	//LAB 3: Your code here.
+    //Таблица заголовков секций это массив структур struct Secthdr. 
+	//Количество элементов массива определяется полем e_shnum ELF-файла. 
+	//Массив находится по смещению, хранящемуся в поле e_shoff.
+	struct Secthdr *sh_start = (struct Secthdr *) ((uint8_t *) elf + elf->e_shoff);//задаем указатель на начало массива со структурами
+	struct Secthdr *sh_end = sh_start + elf->e_shnum;//задаем конец массива структур
+	struct Secthdr *sh;//переменная для цикла, перебирающего все структуры в поисках нужных
+	//Поле sh_name - индекс имени секции. Индекс имени - это смещение в данных секции, 
+	//индекс которой задается в поле e_shstrndx заголовка ELF-файла. 
+	//По этому смещению размещается строка, завершающаяся нулевым байтом, являющаяся именем секции.
+	char *sh_strtab = (char *) elf + sh_start[elf->e_shstrndx].sh_offset;
+	char *strtab = NULL;
+	struct Elf32_Sym *sym_start = NULL, *sym_end = NULL, *sym;
+	uintptr_t addr;
 
+	for (sh = sh_start; sh < sh_end; sh++) 
+	{
+		if (!strcmp(&sh_strtab[sh->sh_name], ".strtab")) 
+		{
+			strtab = (char *) elf + sh->sh_offset;
+		}
+		else
+		if (!strcmp(&sh_strtab[sh->sh_name], ".symtab")) 
+		{
+			sym_start = (struct Elf32_Sym *)((uint8_t *)elf + sh->sh_offset);
+			sym_end = sym_start + sh->sh_size;
+		}
+	}
+
+	for (sym = sym_start; sym < sym_end; sym++) 
+	{
+		addr = find_function(&strtab[sym->st_name]);
+		if (addr)
+			*((uint32_t *) (sym->st_value)) = (uint32_t) addr;
+			//по адресам глобальных указателей на функции записываются адреса функций ядра.
+	}
 	/*
 	*((int *) 0x00231008) = (int) &cprintf;
 	*((int *) 0x00221004) = (int) &sys_yield;
@@ -275,10 +315,28 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 	//  What?  (See env_run() and env_pop_tf() below.)
 
 	//LAB 3: Your code here.
+    struct Elf *ELFHDR = (struct Elf *)binary;
+	struct Proghdr *ph, *eph;
+
+	ph = (struct Proghdr *) ((uint8_t *)ELFHDR + ELFHDR->e_phoff); //offset for programm header
+	eph = ph + ELFHDR->e_phnum;
+
+	for (; ph < eph; ph++)
+	{
+		if (ph->p_type == ELF_PROG_LOAD && ph->p_filesz <= ph->p_memsz)
+		{
+			memmove((void *)ph->p_va, binary + ph->p_offset, ph->p_filesz);
+			memset((void *)ph->p_va + ph->p_filesz, 0, ph->p_memsz-ph->p_filesz);
+		}
+	}
+	e->env_tf.tf_eip = ELFHDR->e_entry;
+    
+    
+    
 	
 #ifdef CONFIG_KSPACE
 	// Uncomment this for task №5.
-	//bind_functions();
+	bind_functions(e, ELFHDR);
 #endif
 }
 
@@ -293,7 +351,14 @@ void
 env_create(uint8_t *binary, size_t size, enum EnvType type)
 {
 	//LAB 3: Your code here.
+    int err;
+	struct Env *e;
+	err = env_alloc(&e,0);
+	if (err) panic("env_alloc: %i", err);
+	e->env_type = type;
+	load_icode(e, binary, size);
 }
+
 
 //
 // Frees env e and all memory it uses.
@@ -320,7 +385,7 @@ env_destroy(struct Env *e)
 {
 	//LAB 3: Your code here.
 	env_free(e);
-
+    sched_yield();
 	cprintf("Destroyed the only environment - nothing more to do!\n");
 	while (1)
 		monitor(NULL);
@@ -419,8 +484,12 @@ env_run(struct Env *e)
 	//	e->env_tf to sensible values.
 	//
 	//LAB 3: Your code here.
-
-
+    if (curenv != e && (curenv->env_status == ENV_RUNNING)) 
+			curenv->env_status = ENV_RUNNABLE;		
+	curenv = e;
+	curenv->env_status = ENV_RUNNING;
+	curenv->env_runs++;
+    
 	env_pop_tf(&e->env_tf);
 }
 
