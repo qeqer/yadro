@@ -7,20 +7,20 @@ void
 rtc_init(void)
 {
 	nmi_disable();
-	// LAB 4: your code here
-	outb(IO_RTC_CMND, RTC_BREG); //переключение на регистр B (в defin'ax)
-	uint8_t B = inb(IO_RTC_DATA);
-	B = B | RTC_PIE;
+	// LAB 4: your code here	
 	outb(IO_RTC_CMND, RTC_BREG);
-	outb(IO_RTC_CMND, B);
-	//Изменение частоты
+	uint8_t regB = inb(IO_RTC_DATA);
+	regB = regB | RTC_PIE;
+	outb(IO_RTC_CMND, RTC_BREG);
+	outb(IO_RTC_DATA, regB);
+	//меняем частоту часов
 	outb(IO_RTC_CMND, RTC_AREG);
-	uint8_t A = inb(IO_RTC_DATA);
-	A = A & 0xF0;
-	A = A | 0x0F;
+	uint8_t regA = inb(IO_RTC_DATA);
+	regA = regA & 0xF0;
+	regA = regA | 0x0F;
 	outb(IO_RTC_CMND, RTC_AREG);
-	outb(IO_RTC_DATA, A);
-
+	outb(IO_RTC_DATA, regA);
+	
 	nmi_enable();
 }
 

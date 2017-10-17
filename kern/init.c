@@ -6,7 +6,6 @@
 
 #include <kern/monitor.h>
 #include <kern/console.h>
-
 #include <kern/env.h>
 #include <kern/trap.h>
 #include <kern/sched.h>
@@ -37,10 +36,9 @@ i386_init(void)
 	clock_idt_init();
 
 	pic_init();
-	rtc_init(); //после инициализации часов и прог контр прер pic
+	rtc_init();
 	
 	irq_setmask_8259A(irq_mask_8259A & ~(1 << IRQ_CLOCK));
-
 
 #ifdef CONFIG_KSPACE
 	// Touch all you want.

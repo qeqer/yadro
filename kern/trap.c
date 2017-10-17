@@ -134,13 +134,11 @@ trap_dispatch(struct Trapframe *tf)
 		print_trapframe(tf);
 		return;
 	}
-
-
-
+	//прерывание -> проверяем и посылаем, запускаем
 	if (tf->tf_trapno == IRQ_OFFSET + IRQ_CLOCK) {
 		rtc_check_status();
 		pic_send_eoi(IRQ_CLOCK);
-
+		
 		sched_yield();
 		return;
 	}
