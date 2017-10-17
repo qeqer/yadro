@@ -37,7 +37,10 @@ i386_init(void)
 	clock_idt_init();
 
 	pic_init();
-	rtc_init();
+	rtc_init(); //после инициализации часов и прог контр прер pic
+	
+	irq_setmask_8259A(irq_mask_8259A & ~(1 << IRQ_CLOCK));
+
 
 #ifdef CONFIG_KSPACE
 	// Touch all you want.

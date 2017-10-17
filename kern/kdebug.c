@@ -224,7 +224,6 @@ find_function(const char * const fname)
 	for (stab = stab_start; stab < stab_end; stab++) {//все секции .stab
 		str = &stabstr[stab->n_strx];//n_strx - строка (индекс) с именем функции в секции .stabstr
 		cmplen = strfind(str, ':') - str;
-        cprintf("This is stabstr: %s\n", &stabstr[stab->n_strx]);
 		if ((stab->n_type == N_FUN) && (length == cmplen) && !strncmp(fname, str, cmplen)) {
 			return stab->n_value;//возвращаем найденный адрес функции
         }
