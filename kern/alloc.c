@@ -71,10 +71,10 @@ test_alloc(uint8_t nbytes)
 void
 test_free(void *ap)
 {
-	spin_lock(&lk);///
+
 	Header *bp, *p;
 	bp = (Header *) ap - 1; /* point to block header */
-	
+	spin_lock(&lk);///	
 	for (p = freep; !(bp > p && bp < p->s.next); p = p->s.next)
 		if (p >= p->s.next && (bp > p || bp < p->s.next))
 			break; /* freed block at start or end of arena */

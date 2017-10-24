@@ -29,7 +29,8 @@ static struct Command commands[] = {
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
 	{ "test", "Teste it", mon_test },
 	{ "timer_start", "start timer", mon_start},
-	{ "timer_stop", "stop timer", mon_stop}
+	{ "timer_stop", "stop timer", mon_stop},
+	{ "show", "Show Pages", mon_show}
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
