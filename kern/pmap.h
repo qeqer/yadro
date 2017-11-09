@@ -51,9 +51,6 @@ enum {
 	ALLOC_ZERO = 1<<0,
 };
 
-
-
-int 	mon_show();
 void	mem_init(void);
 
 void	page_init(void);

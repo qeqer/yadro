@@ -110,9 +110,6 @@ stab_binsearch(const struct Stab *stabs, int *region_left, int *region_right,
 //	negative if not.  But even if it returns negative it has stored some
 //	information into '*info'.
 //
-
-
-
 int
 debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 {
@@ -145,6 +142,7 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 		// Make sure this memory is valid.
 		// Return -1 if it is not.  Hint: Call user_mem_check.
 		// LAB 8: Your code here.
+		
 
 		stabs = usd->stabs;
 		stab_end = usd->stab_end;
@@ -153,6 +151,9 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 
 		// Make sure the STABS and string table memory is valid.
 		// LAB 8: Your code here.
+		user_mem_assert(curenv, usd, sizeof(struct UserStabData), PTE_U);
+		user_mem_assert(curenv, stabs, (uintptr_t)stab_end - (uintptr_t)stabs, PTE_U);
+		user_mem_assert(curenv, stabstr, (uintptr_t)stabstr_end - (uintptr_t)stabstr, PTE_U);
 	}
 
 	// String table validity checks
@@ -207,10 +208,12 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	//	Look at the STABS documentation and <inc/stab.h> to find
 	//	which one.
 	// Your code here.
+	stab_binsearch(stabs, &lline, &rline, N_SLINE, addr);
 
-    stab_binsearch(stabs, & lline, & rline, N_SLINE, addr);
-    if (lline > rline) return -1;
-    info->eip_line = stabs[lline].n_desc;
+	if (lline > rline)
+		return -1;
+
+	info->eip_line = stabs[lline].n_desc;
 
 	// Search backwards from the line number for the relevant filename
 	// stab.
@@ -233,7 +236,6 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 		     lline++)
 			info->eip_fn_narg++;
 
-    
 	return 0;
 }
 
@@ -243,16 +245,19 @@ find_function(const char * const fname)
 	// const struct Stab *stabs = __STAB_BEGIN__, *stab_end = __STAB_END__;
 	// const char *stabstr = __STABSTR_BEGIN__, *stabstr_end = __STABSTR_END__;
 	//LAB 3: Your code here.
-    const struct Stab *stab_start = __STAB_BEGIN__, *stab_end = __STAB_END__, *stab;
+	const struct Stab *stab_start = __STAB_BEGIN__, *stab_end = __STAB_END__, *stab;
 	const char *stabstr = __STABSTR_BEGIN__, *str;
+
 	int length = strlen(fname), cmplen;
-	for (stab = stab_start; stab < stab_end; stab++) {//все секции .stab
-		str = &stabstr[stab->n_strx];//n_strx - строка (индекс) с именем функции в секции .stabstr
+
+	for (stab = stab_start; stab < stab_end; stab++) { // loop bu all .stab sections
+		str = &stabstr[stab->n_strx]; //n_strx - index of string with name of function in .stabstr
 		cmplen = strfind(str, ':') - str;
-		if ((stab->n_type == N_FUN) && (length == cmplen) && !strncmp(fname, str, cmplen)) {
-			return stab->n_value;//возвращаем найденный адрес функции
-        }
+
+		if (stab->n_type == N_FUN && length == cmplen && !strncmp(fname, str, cmplen))
+			return stab->n_value; // return founded funstion affress
 	}
+
 	return 0;
 }
 

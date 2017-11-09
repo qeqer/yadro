@@ -15,6 +15,7 @@
 #include <kern/picirq.h>
 #include <kern/kclock.h>
 
+
 void
 i386_init(void)
 {
@@ -47,8 +48,8 @@ i386_init(void)
 
 	pic_init();
 	rtc_init();
-	
-	irq_setmask_8259A(irq_mask_8259A & ~(1 << IRQ_CLOCK));
+
+	irq_setmask_8259A(irq_mask_8259A & ~(1 << IRQ_CLOCK)); // clear IRQ_CLOCK bit from mask and apply it
 
 #ifdef CONFIG_KSPACE
 	// Touch all you want.

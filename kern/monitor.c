@@ -1,7 +1,6 @@
 // Simple command-line kernel monitor useful for
 // controlling the kernel and exploring the system interactively.
 
-#include <kern/trap.h>
 #include <inc/stdio.h>
 #include <inc/string.h>
 #include <inc/memlayout.h>
@@ -28,37 +27,18 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
-	{ "test", "Teste it", mon_test },
-	{ "timer_start", "start timer", mon_start},
-	{ "timer_stop", "stop timer", mon_stop},
-	{ "show", "Show Pages", mon_show}
+	{ "great", "Display great text", my_great_text },
+	{ "mon_backtrace", "mon_backtrace", mon_backtrace },
+	{ "backtrace", "backtrace", backtrace },
+	{ "timer_start", "start the timer", start},
+	{ "timer_stop", "stop the timer", stop},
+	{ "view_page", "view pages", viewPages}
+
 };
+
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
 /***** Implementations of basic kernel monitor commands *****/
-
-
-
-int
-mon_start(int argc, char **argv, struct Trapframe *tf)
-{
-	timer_start();
-	return 0;
-}
-
-int
-mon_stop(int argc, char **argv, struct Trapframe *tf)
-{
-	timer_stop();
-	return 0;
-}
-
-int 
-mon_test(int argc, char **argv, struct Trapframe *tf)
-{
-    cprintf("%o\n", 10);
-    return 0;
-}
 
 int
 mon_help(int argc, char **argv, struct Trapframe *tf)
@@ -90,45 +70,99 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 	return 0;
 }
 
-int
-mon_backtrace(int argc, char **argv, struct Trapframe *tf)
-{
-    uint32_t* ebp = (uint32_t*) read_ebp();
-    cprintf("Stack backtrace:\n");
-    while (ebp) {
-        uint32_t eip = ebp[1];
-        cprintf("ebp %08x  eip %08x  args", (unsigned int) ebp, (unsigned int) eip);
-        int i;
-        for (i = 2; i <= 6; ++i)
-            cprintf(" %08x", ebp[i]);
-        cprintf("\n");
-        struct Eipdebuginfo info;
-        debuginfo_eip(eip, &info);
-        cprintf("\t%s:%d: %.*s+%d\n", info.eip_file, info.eip_line, info.eip_fn_namelen, info.eip_fn_name, eip-info.eip_fn_addr);
-        ebp = (uint32_t*) *ebp;
-    }
-    return 0;
+int 
+my_great_text(int argc, char **argv, struct Trapframe *tf) {
+	cprintf("Yooo! Great text!\n");
+
+	return 0;
 }
 
-void
-backtrace(struct Trapframe *tf)
-{
-    uint32_t* ebp = (uint32_t*) read_ebp();
-    cprintf("Stack backtrace:\n");
-    while (ebp) {
-        uint32_t eip = ebp[1];
-        cprintf("ebp %08x  eip %08x  args", (unsigned int) ebp, (unsigned int) eip);
-        int i;
-        for (i = 2; i <= 6; ++i)
-            cprintf(" %08x", ebp[i]);
-        cprintf("\n");
-        struct Eipdebuginfo info;
-        debuginfo_eip(eip, &info);
-        cprintf("\t%s:%d: %.*s+%d\n", info.eip_file, info.eip_line, info.eip_fn_namelen, info.eip_fn_name, eip-info.eip_fn_addr);
-        ebp = (uint32_t*) *ebp;
-    }
+int backtrace(int argc, char **argv, struct Trapframe *tf) {
+	unsigned int *ebp = (unsigned int*) read_ebp();
+	cprintf("Stack backtrace:\n");
+
+	while (ebp) {
+		unsigned int eip = ebp[1];
+		cprintf("  ebp %08x  eip %08x  args", (unsigned int) ebp, eip);
+
+		// print 5 args
+		int i;
+		for (i = 0; i < 5; i++)
+			cprintf(" %08x", ebp[i + 2]);
+		cprintf("\n");
+
+		struct Eipdebuginfo info;
+
+		debuginfo_eip(eip, &info);
+
+		cprintf("\t%s:%d: %.*s+%d\n", info.eip_file, info.eip_line,	info.eip_fn_namelen, info.eip_fn_name, eip-info.eip_fn_addr);
+
+		ebp = (unsigned int *) *ebp;
+	}
+
+	return 0;
 }
 
+int mon_backtrace(int argc, char **argv, struct Trapframe *tf) {
+	unsigned int *ebp = (unsigned int*) read_ebp();
+	cprintf("Stack backtrace:\n");
+
+	while (ebp) {
+		cprintf("  ebp %08x  eip %08x  args", (unsigned int) ebp, ebp[1]);
+		
+		int i;
+		// for (int i = 0; i < 5; i++) - :C C99 mode 
+		for (i = 0; i < 5; i++)
+			cprintf(" %08x", ebp[i + 2]);
+
+		cprintf("\n");
+
+		ebp = (unsigned int *) *ebp;
+	}
+
+	return 0;
+}
+
+ // start the timer
+int start(int argc, char **argv, struct Trapframe *tf) {
+	timer_start();
+
+	return 0;
+}
+
+// stop the timer
+int stop(int argc, char **argv, struct Trapframe *tf) {
+	timer_stop();
+
+	return 0;
+}
+
+int viewPages(int argc, char **argv, struct Trapframe *tf) {
+	size_t i;
+	size_t lastAllocated = 1;
+	int isAllocated = 1;
+
+	for (i = 1; i < npages; i++) {
+		int ref = pages[i].pp_ref ? 1 : 0;
+
+		if (ref != isAllocated) {
+			if (lastAllocated != i)
+				cprintf("%d..%d ", lastAllocated, i);
+			else
+				cprintf("%d ", lastAllocated);
+
+			cprintf(isAllocated ? "ALLOCATED\n" : "FREE\n");
+
+			isAllocated = ref;
+			lastAllocated = i + 1;
+		}
+	}
+
+	if (lastAllocated != npages)
+		cprintf("%d..%d %s\n", lastAllocated, npages, isAllocated ? "ALLOCATED" : "FREE");
+
+	return 0;
+}
 
 /***** Kernel monitor command interpreter *****/
 

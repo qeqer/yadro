@@ -127,8 +127,14 @@ void
 env_init(void)
 {
 	// Set up envs array
-    //NENV - const in inc/env.h Max Processes
-    for (int i = NENV - 1; i >= 0; i--) {
+	//LAB 3: Your code here.
+	
+	// Per-CPU part of the initialization
+	// Set up envs array
+	//LAB 3: Your code here.
+	int i;
+
+	for (i = NENV - 1; i >= 0; i--) {
 		envs[i].env_status = ENV_FREE;
 		envs[i].env_id = 0;
 		envs[i].env_link = env_free_list;
@@ -195,6 +201,9 @@ env_setup_vm(struct Env *e)
 	//    - The functions in kern/pmap.h are handy.
 
 	// LAB 8: Your code here.
+	e->env_pgdir = page2kva(p);
+	memcpy(e->env_pgdir, kern_pgdir, PGSIZE);
+	p->pp_ref++;
 
 	// UVPT maps the env's own page table read-only.
 	// Permissions: kernel R, user R
@@ -262,7 +271,8 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	e->env_tf.tf_ss = GD_KD | 0;
 	e->env_tf.tf_cs = GD_KT | 0;
 	//LAB 3: Your code here.
-	e->env_tf.tf_esp = 0x210000 + 0x2000 * (e - envs); //0x2000-2 страницы под стек для процесса, e-envs - индекс в envs
+	e->env_tf.tf_esp = 0x00210000 + 0x2000 * (e - envs); // 2 pages
+	// e->env_tf.tf_esp = 0x210000;
 #else
 	e->env_tf.tf_ds = GD_UD | 3;
 	e->env_tf.tf_es = GD_UD | 3;
@@ -299,7 +309,17 @@ region_alloc(struct Env *e, void *va, size_t len)
 	// Hint: It is easier to use region_alloc if the caller can pass
 	//   'va' and 'len' values that are not page-aligned.
 	//   You should round va down, and round (va + len) up.
-	//   (Watch out for corner-cases!)
+	//   (Watch out for corner-cases!)	
+	uintptr_t addr = ROUNDDOWN((uintptr_t)va, PGSIZE);
+	uintptr_t end = ROUNDUP((uintptr_t)va + len, PGSIZE);
+
+	for (; addr < end; addr += PGSIZE) {
+		struct PageInfo *page = page_alloc(0);
+		if (!page)
+		        panic("region_alloc");
+
+        page_insert(e->env_pgdir, page, (void *)addr, PTE_U | PTE_W | PTE_P);
+	}
 }
 
 #ifdef CONFIG_KSPACE
@@ -308,41 +328,31 @@ bind_functions(struct Env *e, struct Elf *elf)
 {
 	//find_function from kdebug.c should be used
 	//LAB 3: Your code here.
-    //Таблица заголовков секций это массив структур struct Secthdr. 
-	//Количество элементов массива определяется полем e_shnum ELF-файла. 
-	//Массив находится по смещению, хранящемуся в поле e_shoff.
 	struct Secthdr *sh_start = (struct Secthdr *) ((uint8_t *) elf + elf->e_shoff);//задаем указатель на начало массива со структурами
 	struct Secthdr *sh_end = sh_start + elf->e_shnum;//задаем конец массива структур
-	struct Secthdr *sh;//переменная для цикла, перебирающего все структуры в поисках нужных
-	//Поле sh_name - индекс имени секции. Индекс имени - это смещение в данных секции, 
-	//индекс которой задается в поле e_shstrndx заголовка ELF-файла. 
-	//По этому смещению размещается строка, завершающаяся нулевым байтом, являющаяся именем секции.
+	struct Secthdr *sh;
+
 	char *sh_strtab = (char *) elf + sh_start[elf->e_shstrndx].sh_offset;
 	char *strtab = NULL;
 	struct Elf32_Sym *sym_start = NULL, *sym_end = NULL, *sym;
-	uintptr_t addr;
 
-	for (sh = sh_start; sh < sh_end; sh++) 
-	{
+	for (sh = sh_start; sh < sh_end; sh++) {
 		if (!strcmp(&sh_strtab[sh->sh_name], ".strtab")) 
-		{
 			strtab = (char *) elf + sh->sh_offset;
-		}
-		else
-		if (!strcmp(&sh_strtab[sh->sh_name], ".symtab")) 
-		{
+		else if (!strcmp(&sh_strtab[sh->sh_name], ".symtab")) {
 			sym_start = (struct Elf32_Sym *)((uint8_t *)elf + sh->sh_offset);
 			sym_end = sym_start + sh->sh_size;
 		}
 	}
 
-	for (sym = sym_start; sym < sym_end; sym++) 
-	{
-		addr = find_function(&strtab[sym->st_name]);
+	for (sym = sym_start; sym < sym_end; sym++) {
+		uintptr_t addr = find_function(&strtab[sym->st_name]);
+
 		if (addr)
 			*((uint32_t *) (sym->st_value)) = (uint32_t) addr;
 			//по адресам глобальных указателей на функции записываются адреса функций ядра.
 	}
+
 	/*
 	*((int *) 0x00231008) = (int) &cprintf;
 	*((int *) 0x00221004) = (int) &sys_yield;
@@ -409,24 +419,24 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 	//  What?  (See env_run() and env_pop_tf() below.)
 
 	//LAB 3: Your code here.
-    struct Elf *ELFHDR = (struct Elf *)binary;
-	struct Proghdr *ph, *eph;
+	struct Elf *ELFHDR = (struct Elf *)binary;
 
-	ph = (struct Proghdr *) ((uint8_t *)ELFHDR + ELFHDR->e_phoff); //offset for programm header
-	eph = ph + ELFHDR->e_phnum;
+	if(ELFHDR->e_magic != ELF_MAGIC)
+	    panic("ELF_MAGIC\n");
 
-	for (; ph < eph; ph++)
-	{
-		if (ph->p_type == ELF_PROG_LOAD && ph->p_filesz <= ph->p_memsz)
-		{
+	struct Proghdr *ph = (struct Proghdr *) ((uint8_t *)ELFHDR + ELFHDR->e_phoff);
+	struct Proghdr *eph = ph + ELFHDR->e_phnum;
+	lcr3(PADDR(e->env_pgdir));
+
+	for (; ph < eph; ph++) { 
+		if (ph->p_type == ELF_PROG_LOAD && ph->p_filesz <= ph->p_memsz) {
+			region_alloc(e, (void *)(ph->p_va), ph->p_memsz);
 			memmove((void *)ph->p_va, binary + ph->p_offset, ph->p_filesz);
 			memset((void *)ph->p_va + ph->p_filesz, 0, ph->p_memsz-ph->p_filesz);
 		}
 	}
+
 	e->env_tf.tf_eip = ELFHDR->e_entry;
-    
-    
-    
 	
 #ifdef CONFIG_KSPACE
 	// Uncomment this for task №5.
@@ -435,6 +445,7 @@ load_icode(struct Env *e, uint8_t *binary, size_t size)
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
 	// LAB 8: Your code here.
+	region_alloc(e, (void *)(USTACKTOP - PGSIZE), PGSIZE);
 }
 
 //
@@ -448,14 +459,16 @@ void
 env_create(uint8_t *binary, size_t size, enum EnvType type)
 {
 	//LAB 3: Your code here.
-    int err;
+	int err;
 	struct Env *e;
 	err = env_alloc(&e,0);
-	if (err) panic("env_alloc: %i", err);
+
+	if (err)
+		panic("env_alloc: %i", err);
+
 	e->env_type = type;
 	load_icode(e, binary, size);
 }
-
 
 //
 // Frees env e and all memory it uses.
@@ -523,8 +536,11 @@ env_destroy(struct Env *e)
 {
 	//LAB 3: Your code here.
 	env_free(e);
-    sched_yield();
+
+	sched_yield();
+
 	cprintf("Destroyed the only environment - nothing more to do!\n");
+
 	while (1)
 		monitor(NULL);
 }
@@ -630,12 +646,13 @@ env_run(struct Env *e)
 	//	e->env_tf to sensible values.
 	//
 	//LAB 3: Your code here.
-    if (curenv != e && (curenv->env_status == ENV_RUNNING)) 
-			curenv->env_status = ENV_RUNNABLE;		
+	if (curenv != e && (curenv->env_status == ENV_RUNNING)) 
+			curenv->env_status = ENV_RUNNABLE;	
+
 	curenv = e;
 	curenv->env_status = ENV_RUNNING;
 	curenv->env_runs++;
-    
+
 	env_pop_tf(&e->env_tf);
 }
 

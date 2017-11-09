@@ -57,6 +57,14 @@
 .type _alltraps, @function;
 .align 2
 _alltraps:
+	pushl %ds
+	pushl %es
+	pushal
+	movl $GD_KD, %eax
+	movw %ax, %ds
+	movw %ax, %es
+	pushl %esp 
+	call trap
     jmp .
 
 .globl clock_thdlr
@@ -96,4 +104,27 @@ clock_thdlr:
 #else
 TRAPHANDLER_NOEC(clock_thdlr, IRQ_OFFSET + IRQ_CLOCK)
 // LAB 8: Your code here.
+TRAPHANDLER_NOEC(idt_handler0, T_DIVIDE);
+TRAPHANDLER_NOEC(idt_handler1, T_DEBUG );
+TRAPHANDLER_NOEC(idt_handler2, T_NMI);
+TRAPHANDLER_NOEC(idt_handler3, T_BRKPT);
+TRAPHANDLER_NOEC(idt_handler4, T_OFLOW);
+TRAPHANDLER_NOEC(idt_handler5, T_BOUND);
+TRAPHANDLER_NOEC(idt_handler6, T_ILLOP);
+TRAPHANDLER_NOEC(idt_handler7, T_DEVICE);
+TRAPHANDLER(idt_handler8, T_DBLFLT);
+
+TRAPHANDLER(idt_handler10, T_TSS);
+TRAPHANDLER(idt_handler11, T_SEGNP);
+TRAPHANDLER(idt_handler12, T_STACK);
+TRAPHANDLER(idt_handler13, T_GPFLT);
+TRAPHANDLER(idt_handler14, T_PGFLT);
+
+TRAPHANDLER_NOEC(idt_handler16, T_FPERR);
+TRAPHANDLER(idt_handler17, T_ALIGN);
+TRAPHANDLER_NOEC(idt_handler18, T_MCHK);
+TRAPHANDLER_NOEC(idt_handler19, T_SIMDERR);
+
+TRAPHANDLER_NOEC(idt_handler48, T_SYSCALL);
+
 #endif

@@ -12,12 +12,16 @@ struct Trapframe;
 void monitor(struct Trapframe *tf);
 
 // Functions implementing monitor commands.
-
 int mon_help(int argc, char **argv, struct Trapframe *tf);
 int mon_kerninfo(int argc, char **argv, struct Trapframe *tf);
+int my_great_text(int argc, char **argv, struct Trapframe *tf);
+
+int backtrace(int argc, char **argv, struct Trapframe *tf);
 int mon_backtrace(int argc, char **argv, struct Trapframe *tf);
-int mon_test(int argc, char **argv, struct Trapframe *tf);
-int mon_start(int argc, char **argv, struct Trapframe *tf);
-int mon_stop(int argc, char **argv, struct Trapframe *tf);
+
+int start(int argc, char **argv, struct Trapframe *tf); // start the timer
+int stop(int argc, char **argv, struct Trapframe *tf); // stop the timer
+
+int viewPages(int argc, char **argv, struct Trapframe *tf);
 
 #endif	// !JOS_KERN_MONITOR_H

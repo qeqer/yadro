@@ -10,7 +10,7 @@ static uint8_t space[SPACE_SIZE];
 static Header base = { .s = { .next = (Header *) space, .prev = (Header *) space, .size = 0 } }; /* empty list to get started */
 
 static Header *freep = NULL; /* start of free list */
-
+static struct spinlock splk = { .locked = 0 };
 
 static void check_list(void)
 {
@@ -27,15 +27,12 @@ static void check_list(void)
 	__asm __volatile("sti;");
 }
 
-static struct spinlock lk = {.locked = 1}; ///
 /* malloc: general-purpose storage allocator */
 void *
 test_alloc(uint8_t nbytes)
 {
-	spin_lock(&lk); ///
-	Header *p;
-	unsigned nunits;
-	nunits = (nbytes + sizeof(Header) - 1) / sizeof(Header) + 1;
+	spin_lock(&splk);
+	unsigned nunits = (nbytes + sizeof(Header) - 1) / sizeof(Header) + 1;
 
 	if (freep == NULL) { /* no free list yet */
 		((Header *) &space)->s.next = (Header *) &base;
@@ -45,6 +42,8 @@ test_alloc(uint8_t nbytes)
 	}
 
 	check_list();
+
+	Header *p;
 
 	for(p = freep->s.next; ; p = p->s.next) {
 		if (p->s.size >= nunits) { /* big enough */
@@ -57,11 +56,12 @@ test_alloc(uint8_t nbytes)
 				p += p->s.size;
 				p->s.size = nunits;
 			}
-			spin_unlock(&lk);///
+
+			spin_unlock(&splk);
 			return (void *)(p + 1);
 		}
 		if (p == freep) { /* wrapped around free list */
-			spin_unlock(&lk); ///
+			spin_unlock(&splk);
 			return NULL;
 		}
 	}
@@ -71,10 +71,11 @@ test_alloc(uint8_t nbytes)
 void
 test_free(void *ap)
 {
+	spin_lock(&splk);
 
 	Header *bp, *p;
 	bp = (Header *) ap - 1; /* point to block header */
-	spin_lock(&lk);///	
+
 	for (p = freep; !(bp > p && bp < p->s.next); p = p->s.next)
 		if (p >= p->s.next && (bp > p || bp < p->s.next))
 			break; /* freed block at start or end of arena */
@@ -93,6 +94,7 @@ test_free(void *ap)
 	freep = p;
 
 	check_list();
-	spin_unlock(&lk);///
+
+	spin_unlock(&splk);
 }
 
