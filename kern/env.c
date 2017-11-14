@@ -285,6 +285,17 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
 	// You will set e->env_tf.tf_eip later.
 
+#ifdef CONFIG_KSPACE
+	{
+		extern int envsid[10];
+		static int static_init_num = 0;
+		if (static_init_num < 10) {
+			e->static_num = static_init_num;
+			envsid[static_init_num] = 1;
+			++static_init_num;
+		}
+	}
+#endif
 	// Clear the page fault handler until user installs one.
 	e->env_pgfault_upcall = 0;
 
@@ -540,15 +551,17 @@ env_free(struct Env *e)
 void
 env_destroy(struct Env *e)
 {
-	//LAB 3: Your code here.
+	if (e->env_status == ENV_RUNNING && curenv != e) {
+		e->env_status = ENV_DYING;
+		return;
+	}
+
 	env_free(e);
 
-	sched_yield();
-
-	cprintf("Destroyed the only environment - nothing more to do!\n");
-
-	while (1)
-		monitor(NULL);
+	if (curenv == e) {
+		curenv = NULL;
+		sched_yield();
+	}
 }
 
 #ifdef CONFIG_KSPACE

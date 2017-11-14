@@ -50,6 +50,7 @@ dumbfork(void)
 	// so that the child will appear to have called sys_exofork() too -
 	// except that in the child, this "fake" call to sys_exofork()
 	// will return 0 instead of the envid of the child.
+	cprintf("Now we will sys_exofork\n");
 	envid = sys_exofork();
 	if (envid < 0)
 		panic("sys_exofork: %i", envid);
