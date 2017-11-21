@@ -35,7 +35,7 @@ sched_yield(void)
 
 	while ((e != curenv) && (e->env_status != ENV_RUNNABLE))
 	{
-		cprintf("Enviro %d\n", e - envs);
+		//cprintf("#Enviro %d\n", e - envs);
 		e = &envs[(e - envs + 1) % NENV];
 	}
 	if ((e->env_status == ENV_RUNNABLE) || (e->env_status == ENV_RUNNING))
