@@ -364,12 +364,12 @@ page_fault_handler(struct Trapframe *tf)
 			}
 			user_mem_assert(curenv, (void *)xstacktop, UXSTACKTOP - xstacktop, PTE_W | PTE_U);
 			struct UTrapframe *utf = (struct UTrapframe *)xstacktop;
+			utf->utf_esp = tf->tf_esp;
 			utf->utf_eflags = tf->tf_eflags;
 			utf->utf_eip = tf->tf_eip;
-			utf->utf_err = tf->tf_err;
-			utf->utf_esp = tf->tf_esp;
-			utf->utf_fault_va = fault_va;
 			utf->utf_regs = tf->tf_regs;
+			utf->utf_err = tf->tf_err;
+			utf->utf_fault_va = fault_va;
 			tf->tf_eip = (uint32_t)curenv->env_pgfault_upcall;
 			tf->tf_esp = xstacktop;
 			env_run(curenv);

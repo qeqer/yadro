@@ -14,7 +14,7 @@
 static void
 pgfault(struct UTrapframe *utf)
 {
-	void *addr = (void *) utf->utf_fault_va;addr=addr;
+	void *addr = (void *) utf->utf_fault_va;
 	uint32_t err = utf->utf_err;err=err;
 
 	// Check that the faulting access was (1) a write, and (2) to a
@@ -110,7 +110,41 @@ envid_t
 fork(void)
 {
 	// LAB 9: Your code here.
-	panic("fork not implemented");
+	//panic("fork not implemented");
+	set_pgfault_handler(pgfault);
+	envid_t envid = sys_exofork();
+	if (envid < 0) {
+			panic("fork");
+	}
+	else if (envid == 0) {
+		thisenv = &envs[ENVX(sys_getenvid())];
+		return 0;
+	}
+	int ipd, ipt;
+	for (ipd = 0; ipd != PDX(UTOP); ++ipd) {
+		if (!(uvpd[ipd] & PTE_P)) {
+			continue;
+		}
+		for (ipt = 0; ipt != NPTENTRIES; ++ipt) { //page table entries by page
+			unsigned pn = (ipd << 10) | ipt;
+			if (pn == PGNUM(UXSTACKTOP - PGSIZE)) {
+				if (sys_page_alloc(envid, (void *)(UXSTACKTOP - PGSIZE), PTE_W | PTE_U | PTE_P)) {
+	 				panic("fork xstack");
+				}
+				continue;
+			}
+			if (uvpt[pn] & PTE_P) {
+				duppage(envid, pn);
+			}
+		}
+	}
+	if (sys_env_set_pgfault_upcall(envid, thisenv->env_pgfault_upcall)) {
+		panic("pgfault upcall");
+	}
+	if (sys_env_set_status(envid, ENV_RUNNABLE)) {
+		panic("env status");
+	}
+	return envid;
 }
 
 // Challenge!

@@ -170,18 +170,22 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 	//   allocated!
 	struct Env *env;
 	struct PageInfo *page;
-	if ((uint32_t)va >= UTOP || PGOFF(va) != 0) 
-	        return -E_INVAL;
-	if (!(perm & PTE_U) || !(perm & PTE_P) || (perm & ~PTE_SYSCALL)) 
-	        return -E_INVAL;
-  	if (envid2env(envid, &env, 1) < 0)
-	        return -E_BAD_ENV;
+	if ((uint32_t)va >= UTOP || PGOFF(va) != 0) {
+		return -E_INVAL;
+	}
+	if (!(perm & PTE_U) || !(perm & PTE_P) || (perm & ~PTE_SYSCALL)) {
+		return -E_INVAL;
+	}
+	if (envid2env(envid, &env, 1) < 0) {
+		return -E_BAD_ENV;
+	}
 	page = page_alloc(ALLOC_ZERO);
-   	if (!page)
-   	     return -E_NO_MEM;
+	if (!page) {
+		return -E_NO_MEM;
+	}
 	if (page_insert(env->env_pgdir, page, va, perm)) {
-   		page_free(page);
-   		return -E_NO_MEM;
+		page_free(page);
+		return -E_NO_MEM;
 	}
 	return 0;
 	// LAB 9: Your code here.
@@ -217,19 +221,25 @@ sys_page_map(envid_t srcenvid, void *srcva,
 	pte_t *srcpte;
 	struct PageInfo *page;
 	if ((uint32_t)srcva >= UTOP || PGOFF(srcva) ||
-      	    (uint32_t)dstva >= UTOP || PGOFF(dstva))
-    		return -E_INVAL;
-	if (!(perm & PTE_U) || !(perm & PTE_P) || (perm & ~PTE_SYSCALL)) 
-	        return -E_INVAL;
-        if (envid2env(srcenvid, &srcenv, 1) || envid2env(dstenvid, &dstenv, 1)) 
-	        return -E_BAD_ENV;
-	page = page_lookup(srcenv->env_pgdir, srcva, &srcpte);
-	if (!page)
+		(uint32_t)dstva >= UTOP || PGOFF(dstva)) {
 		return -E_INVAL;
-	if ((perm & PTE_W) && !(*srcpte & PTE_W))
-	        return -E_INVAL;
-    	if (page_insert(dstenv->env_pgdir, page, dstva, perm))
-	        return -E_NO_MEM;
+	}
+	if (!(perm & PTE_U) || !(perm & PTE_P) || (perm & ~PTE_SYSCALL)){
+		return -E_INVAL;
+	}
+	if (envid2env(srcenvid, &srcenv, 1) || envid2env(dstenvid, &dstenv, 1)){
+		return -E_BAD_ENV;
+	}
+	page = page_lookup(srcenv->env_pgdir, srcva, &srcpte);
+	if (!page){
+		return -E_INVAL;
+	}
+	if ((perm & PTE_W) && !(*srcpte & PTE_W)) {
+		return -E_INVAL;
+	}
+	if (page_insert(dstenv->env_pgdir, page, dstva, perm)) {
+		return -E_NO_MEM;
+	}
 	return 0;
 	// LAB 9: Your code here.
 }
@@ -246,10 +256,12 @@ sys_page_unmap(envid_t envid, void *va)
 {
 	// Hint: This function is a wrapper around page_remove().
 	struct Env *env;
-	if ((uint32_t)va >= UTOP || PGOFF(va)) 
-	        return -E_INVAL;
-	if (envid2env(envid, &env, 1)) 
+	if ((uint32_t)va >= UTOP || PGOFF(va)) {
+		return -E_INVAL;
+	}
+	if (envid2env(envid, &env, 1)) {
 		return -E_BAD_ENV;
+	}
 	page_remove(env->env_pgdir, va);
 	return 0;
 	// LAB 9: Your code here.
@@ -297,7 +309,41 @@ static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
 	// LAB 9: Your code here.
-	panic("sys_ipc_try_send not implemented");
+	struct Env *env;
+	if (envid2env(envid, &env, 0)) {
+		return -E_BAD_ENV;
+	}
+	if (!env->env_ipc_recving) {
+		return -E_IPC_NOT_RECV;
+	}
+	if ((uintptr_t)srcva < UTOP) {
+		if ((uintptr_t)srcva & (PGOFF(srcva) != 0)) {
+			return -E_INVAL;
+		}
+		if (!(perm & PTE_U) || !(perm & PTE_P) || (perm & ~PTE_SYSCALL)) {
+			return -E_INVAL;
+		}
+		pte_t *pte;
+		struct PageInfo *page = page_lookup(curenv->env_pgdir, srcva, &pte);
+		if (!page) {
+			return -E_INVAL;
+		}
+		if ((perm & PTE_W) && !(*pte & PTE_W)) {
+			return -E_INVAL;
+		}
+		if ((uintptr_t)env->env_ipc_dstva < UTOP &&
+			page_insert(env->env_pgdir, page, env->env_ipc_dstva, perm)) {
+			return -E_NO_MEM;
+		}
+		env->env_ipc_perm = perm;
+	} else { 
+		env->env_ipc_perm = 0;
+	}
+	env->env_ipc_recving = 0;
+	env->env_ipc_from = curenv->env_id;
+	env->env_ipc_value = value;
+	env->env_status = ENV_RUNNABLE;
+	return 0;
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -315,8 +361,19 @@ static int
 sys_ipc_recv(void *dstva)
 {
 	// LAB 9: Your code here.
-	panic("sys_ipc_recv not implemented");
-	return 0;
+	if ((uintptr_t)dstva < UTOP) {
+		if ((uintptr_t)dstva && (PGOFF(dstva) != 0)) {
+			return -E_INVAL;
+		}
+		curenv->env_ipc_dstva = dstva;
+	} else {
+		curenv->env_ipc_dstva = (void *)UTOP;
+	}
+	curenv->env_ipc_recving = 1;
+	curenv->env_status = ENV_NOT_RUNNABLE;
+	curenv->env_tf.tf_regs.reg_eax = 0;
+	sys_yield();
+	return 0;	
 }
 
 // Dispatches to the correct kernel function, passing the arguments.
