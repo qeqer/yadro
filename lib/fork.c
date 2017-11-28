@@ -24,7 +24,10 @@ pgfault(struct UTrapframe *utf)
 	//   (see <inc/memlayout.h>).
 
 	// LAB 9: Your code here.
-
+	pte_t pte = uvpt[PGNUM(addr)];
+	if (!(err & FEC_WR) || !(pte & PTE_COW)) {
+		panic("access");
+	}
 	// Allocate a new page, map it at a temporary location (PFTEMP),
 	// copy the data from the old page to the new page, then move the new
 	// page to the old page's address.
@@ -33,8 +36,19 @@ pgfault(struct UTrapframe *utf)
 	//   No need to explicitly delete the old page's mapping.
 
 	// LAB 9: Your code here.
-
-	panic("pgfault not implemented");
+	if (sys_page_alloc(0, PFTEMP, PTE_W | PTE_U | PTE_P)) {
+		panic("alloc");
+	}
+	addr = ROUNDDOWN(addr, PGSIZE);
+	memmove(PFTEMP, addr, PGSIZE);
+	if (sys_page_map(0, PFTEMP, 0, addr, PTE_W | PTE_U | PTE_P)) {
+		panic("map");
+	}
+	if (sys_page_unmap(0, PFTEMP)){
+		panic("unmap");
+	}
+	return;
+	//panic("pgfault not implemented");
 }
 
 //
@@ -52,7 +66,27 @@ static int
 duppage(envid_t envid, unsigned pn)
 {
 	// LAB 9: Your code here.
-	panic("duppage not implemented");
+	pte_t pte = uvpt[pn];
+	void *va = (void *)(pn << PGSHIFT);
+	if (pte & PTE_SHARE) {
+		if (sys_page_map(0, va, envid, va, pte & PTE_SYSCALL)) {
+			panic("duppage share");
+		}
+	}
+	else
+	if ((pte & PTE_W) || (pte & PTE_COW)) {
+		if (sys_page_map(0, va, envid, va, PTE_COW | PTE_U | PTE_P)) {
+			panic("duppage cow");
+		}
+		if (sys_page_map(0, va, 0, va, PTE_COW | PTE_U | PTE_P)) {
+			panic("duppage perm");
+		}
+	}
+	else 
+		if (sys_page_map(0, va, envid, va, PTE_U | PTE_P)) {
+			panic("duppage map");
+		}
+	//panic("duppage not implemented");
 	return 0;
 }
 
