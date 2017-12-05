@@ -62,13 +62,14 @@ alloc_block(void)
 	// super->s_nblocks blocks in the disk altogether.
 	uint32_t blockno = 0;
 	for (blockno = 0; blockno != super->s_nblocks * BLKBITSIZE; blockno++) {
-    		if (block_is_free(blockno)) {
-     			if (blockno == 0)
-	     			panic("free zero block");
-    			bitmap[blockno/32] &= ~(1<<(blockno%32));
-		        flush_block(diskaddr(blockno));
-		        return blockno;
-	        }
+		if (block_is_free(blockno)) {
+			if (blockno == 0) {
+				panic("free zero block");
+			}
+			bitmap[blockno/32] &= ~(1<<(blockno%32));
+			flush_block(diskaddr(blockno));
+			return blockno;
+		}
 	}
 	// LAB 10: Your code here.
 
