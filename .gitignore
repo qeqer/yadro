@@ -4,7 +4,7 @@
 *.o
 /lib/random_data.c
 /kern/payload.c
-
+/__pycache__/gradelib.cpython-35.pyc
 /obj
 /jos.in
 /jos.log
