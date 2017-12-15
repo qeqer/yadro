@@ -491,12 +491,13 @@ struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
 	// Fill this function in
-	pte_t *page_table_entry = pgdir_walk(pgdir, va, 0);
+	pte_t *pte = pgdir_walk(pgdir, va, 0);
 
-	if (pte_store)
-		*pte_store = page_table_entry;
+	if (pte_store) {
+		*pte_store = pte;
+	}
 
-	return page_table_entry ? pa2page(PTE_ADDR(*page_table_entry)) : NULL;
+	return (pte && (*pte & PTE_P)) ? pa2page(PTE_ADDR(*pte)) : NULL;
 }
 
 //
