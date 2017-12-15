@@ -55,7 +55,17 @@ again:
 			// then close the original 'fd'.
 
 			// LAB 11: Your code here.
-			panic("< redirection not implemented");
+			if ((fd = open(t, O_RDONLY)) < 0) {
+				cprintf("open %s for read: %d", t, fd);
+				exit();
+			}
+			if (fd) {
+				dup(fd, 0);
+				close(fd);
+			}
+
+
+
 			break;
 
 		case '>':	// Output redirection

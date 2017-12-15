@@ -102,7 +102,7 @@ clock_thdlr:
 	call trap
 	jmp .
 #else
-TRAPHANDLER_NOEC(clock_thdlr, IRQ_OFFSET + IRQ_CLOCK)
+TRAPHANDLER_NOEC(clock_thdlr, IRQ_OFFSET + IRQ_CLOCK);
 // LAB 8: Your code here.
 TRAPHANDLER_NOEC(idt_handler0, T_DIVIDE);
 TRAPHANDLER_NOEC(idt_handler1, T_DEBUG );
@@ -124,6 +124,8 @@ TRAPHANDLER_NOEC(idt_handler16, T_FPERR);
 TRAPHANDLER(idt_handler17, T_ALIGN);
 TRAPHANDLER_NOEC(idt_handler18, T_MCHK);
 TRAPHANDLER_NOEC(idt_handler19, T_SIMDERR);
+TRAPHANDLER_NOEC(idt_handler33, IRQ_OFFSET + IRQ_KBD);
+TRAPHANDLER_NOEC(idt_handler36, IRQ_OFFSET + IRQ_SERIAL);
 
 TRAPHANDLER_NOEC(idt_handler48, T_SYSCALL);
 

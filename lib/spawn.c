@@ -299,6 +299,19 @@ map_segment(envid_t child, uintptr_t va, size_t memsz,
 static int
 copy_shared_pages(envid_t child)
 {
+	int pn;
+	void* va = NULL;
+	for (pn = 0; pn < ((UXSTACKTOP - PGSIZE) >> PGSHIFT); pn++) {
+		if (!(uvpd[pn >> 10] & PTE_P) && !(pn % NPTENTRIES)) {
+			pn += NPTENTRIES - 1;
+			continue;
+		}
+		if ((uvpt[pn] & PTE_P) && (uvpt[pn] & PTE_SHARE)) {
+			va = (void*)(pn << PGSHIFT);
+			if ((sys_page_map(0, va, child, va, uvpt[pn] & PTE_SYSCALL)))
+			panic("copy_shared_pages");
+		}
+	}
 	// LAB 11: Your code here.
 	return 0;
 }

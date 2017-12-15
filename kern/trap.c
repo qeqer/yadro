@@ -97,6 +97,8 @@ trap_init(void)
 	extern void idt_handler19();
 
 	extern void idt_handler48();
+	extern void idt_handler33();
+	extern void idt_handler36();
 
 	SETGATE(idt[T_DIVIDE], 0, GD_KT, idt_handler0, 0);
 	SETGATE(idt[T_DEBUG], 0, GD_KT, idt_handler1, 0);
@@ -120,6 +122,8 @@ trap_init(void)
 	SETGATE(idt[T_SIMDERR], 0, GD_KT, idt_handler19, 0);
 
 	SETGATE(idt[T_SYSCALL], 0, GD_KT, idt_handler48, 3);
+	SETGATE(idt[IRQ_OFFSET + IRQ_KBD], 0, GD_KT, idt_handler33, 3);
+	SETGATE(idt[IRQ_OFFSET + IRQ_SERIAL], 0, GD_KT, idt_handler36, 3);
 
 	// Per-CPU setup 
 	trap_init_percpu();
@@ -243,6 +247,19 @@ trap_dispatch(struct Trapframe *tf)
 
 	// Handle keyboard and serial interrupts.
 	// LAB 11: Your code here.
+	if (tf->tf_trapno == IRQ_OFFSET+IRQ_KBD)
+    {
+        kbd_intr();
+        sched_yield();
+        return;
+    }
+
+    if (tf->tf_trapno == IRQ_OFFSET+IRQ_SERIAL)
+    {
+        serial_intr();
+        sched_yield();
+        return;
+    }
 
 	print_trapframe(tf);
 	if (tf->tf_cs == GD_KT) {
