@@ -11,7 +11,7 @@
 struct Env;
 
 extern char bootstacktop[], bootstack[];
-
+extern int *vsys;
 extern struct PageInfo *pages;
 extern size_t npages;
 

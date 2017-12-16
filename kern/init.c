@@ -14,6 +14,7 @@
 #include <kern/cpu.h>
 #include <kern/picirq.h>
 #include <kern/kclock.h>
+#include <inc/vsyscall.h>
 
 
 void
@@ -50,6 +51,7 @@ i386_init(void)
 	rtc_init();
 
 	irq_setmask_8259A(irq_mask_8259A & ~(1 << IRQ_CLOCK)); // clear IRQ_CLOCK bit from mask and apply it
+	vsys[VSYS_gettime] = gettime();
 
 #ifdef CONFIG_KSPACE
 	// Touch all you want.
