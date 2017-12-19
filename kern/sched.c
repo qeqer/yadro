@@ -11,6 +11,8 @@ void sched_halt(void);
 void
 sched_yield(void)
 {
+	//cprintf("!TIME UPDATE!!!!!!!!! in trap.c   %d\n", vsys[VSYS_gettime]);
+	//vsys[VSYS_gettime] = gettime();
 	// Implement simple round-robin scheduling.
 	//
 	// Search through 'envs' for an ENV_RUNNABLE environment in

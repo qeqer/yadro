@@ -242,8 +242,6 @@ trap_dispatch(struct Trapframe *tf)
 		rtc_check_status();
 		pic_send_eoi(IRQ_CLOCK);
 		vsys[VSYS_gettime] = gettime();
-		cprintf("!TIME UPDATE!!!!!!!!! in trap.c   %d\n", vsys[VSYS_gettime]);
-
 		sched_yield();
 		return;
 	}
@@ -252,13 +250,19 @@ trap_dispatch(struct Trapframe *tf)
 	// LAB 11: Your code here.
 	if (tf->tf_trapno == IRQ_OFFSET+IRQ_KBD)
     {
+    	rtc_check_status();
+		pic_send_eoi(IRQ_CLOCK);
+    	vsys[VSYS_gettime] = gettime();
+		//cprintf("!TIME UPDATE!!!!!!!!! in trap.c   %d\n", vsys[VSYS_gettime]);
         kbd_intr();
+        vsys[VSYS_gettime] = gettime();
         sched_yield();
         return;
     }
 
     if (tf->tf_trapno == IRQ_OFFSET+IRQ_SERIAL)
     {
+    	vsys[VSYS_gettime] = gettime();
         serial_intr();
         sched_yield();
         return;
